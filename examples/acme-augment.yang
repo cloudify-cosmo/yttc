@@ -1,0 +1,18 @@
+module acme-augment {
+
+  namespace "http://acme.example.com/acme2";
+  prefix acme2;
+
+  import acme {
+       prefix "acme";
+   }
+
+
+  augment "/acme:tape" {
+    leaf modificator {
+      type acme:cell-index;
+      config "true";
+    }
+  }
+
+}
