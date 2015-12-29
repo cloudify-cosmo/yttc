@@ -10,4 +10,6 @@ if __name__ == '__main__':
         sys.stderr.write("No input files")
         sys.exit(1)
     fd = codecs.getwriter('utf8')(sys.stdout)
-    convert(filenames, fd)
+    result, message = convert(filenames, fd)
+    if not result:
+        sys.stderr.write("Error: {}".format(message))
