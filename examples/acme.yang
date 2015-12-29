@@ -1,0 +1,103 @@
+module acme {
+  namespace "http://acme.example.com/acme";
+  prefix acme;
+
+  typedef cell-index {
+    type int64;
+    description
+      "Type for indexing tape cells.";
+  }
+
+  //  include acmesub;
+  grouping group1 {
+    leaf coordx {
+      type string;
+      description
+        "Coordinate (index) of the tape cell.";
+    }
+    leaf coordy {
+      type string;
+      description
+        "Coordinate (index) of the tape cell.";
+    }
+  }
+
+  container timeout {
+    leaf timeout1 {
+      description "Maximum time without server response";
+      type uint32;
+    }
+    leaf-list listdata {
+         type string;
+         description "A list of user name patterns to allow";
+    }
+    container protocol {
+      leaf protocolid {
+        description "Period to retry operation";
+        type uint32;
+      }
+      choice name {
+        case casea {
+          leaf udp {
+            type empty;
+          }
+        }
+        case caseb {
+          leaf tcp {
+            type empty;
+          }
+        }
+      }
+    }
+  }
+
+  container tape {
+    description
+      "The contents of the tape.";
+    container tape1 {
+      uses group1;
+    }
+    container tape2 {
+      leaf coord {
+        mandatory "true";
+        type string;
+        description
+          "Coordinate (index) of the tape cell.";
+      }
+      list cell {
+        key "coord";
+        description
+          "List of non-blank cells.";
+        leaf coord {
+          type string;
+          description
+            "Coordinate (index) of the tape cell.";
+        }
+        leaf data {
+          type string;
+          description
+            "Coordinate (index) of the tape cell.";
+        }
+      }
+    }
+  }
+
+  leaf lower-port {
+    config 'false';
+    type string;
+    description
+      "Lower boundary for port.";
+  }
+
+  /* RPCs */
+
+  rpc initialize {
+    input {
+      leaf tape-content {
+        type string;
+        default "";
+      }
+    }
+  }
+
+}
