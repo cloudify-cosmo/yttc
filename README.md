@@ -66,14 +66,22 @@ cd test
 python test.py ../examples/acme.yang
 ```
 
-Using with pyang
-================
+Using converter in command line
+===============================
+This library has simple wrapper for `pyang` command line utility: **`yttc`**
+
 pyang is a YANG validator, transformator and code generator, written in python.
 It can be used to validate YANG modules for correctness, to transform YANG modules
 into other formats, and to generate code from the modules.
 https://github.com/mbj4668/pyang
 
-File 'tosca.py' can be used as plugin for pyang command
-You must add directory, where tosca.py is placed in '--plugindir' parameter of pyang
 
-`pyang --plugindir /home/user/yttc -f tosca acme.yang`
+Instead of run:
+`pyang --plugindir /home/user/yttc/plugin -f tosca acme.yang`
+
+You can just run:
+`yttc acme.yang`
+
+Also you can use other options, that `pyang` support.
+For example:
+`yttc -o acme.yaml acme.yang`

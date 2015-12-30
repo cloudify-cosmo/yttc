@@ -1,6 +1,6 @@
 import io
 import pyang
-from tosca import emit_yaml
+from yttc.plugin.tosca import emit_yaml
 
 
 # Parameters:
