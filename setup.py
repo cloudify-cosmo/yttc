@@ -12,5 +12,9 @@ setup(
     install_requires=[
         'pyang',
         'pyaml'
-    ]
+    ],
+    entry_points='''
+        [console_scripts]
+        yttc=yttc.wrapper:cli
+    '''
 )
