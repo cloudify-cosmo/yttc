@@ -5,7 +5,8 @@ setup(
     name='yttc',
     version='1.0',
     packages=[
-        'yttc'
+        'yttc',
+        'yttc/plugin'
     ],
     license='Apache License',
     description='Library for convert from YANG to cloudify TOSCA',
