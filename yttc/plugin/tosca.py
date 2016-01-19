@@ -59,17 +59,17 @@ def print_help():
 
 def emit_yaml(ctx, modules, fd):
     output = {'data_types': {}, 'node_types': {}}
-    xmlns = []
+    xmlns = {}
     main_module = None
     for module in modules:
         namespace = "{}".format(module.search_one('namespace').arg)
         children = _collect_children(module)
         if children:
             main_module = "{}".format(module.arg)
-            xmlns.append({"_": namespace})
+            xmlns["_"] = namespace
         else:
             prefix = "{}".format(module.i_prefix)
-            xmlns.append({prefix: namespace})
+            xmlns[prefix] = namespace
     if not main_module:
         return fd.write("Can't find main module")
     output['node_types'][main_module] = {'properties':
@@ -77,7 +77,7 @@ def emit_yaml(ctx, modules, fd):
                                           {'type': 'edit-config',
                                            'required': False},
                                           'metadata':
-                                          {'defaults':
+                                          {'default':
                                            {'xmlns': xmlns}}}}
     output['data_types']['edit-config'] = {'properties':
                                            {'target': {'default': 'running'},
