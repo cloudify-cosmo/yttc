@@ -62,6 +62,10 @@ def emit_yaml(ctx, modules, fd):
     xmlns = {}
     main_module = None
     for module in modules:
+        if module.keyword == 'submodule':
+            message = "Can't work with submodule."
+            fd.write(message)
+            return False, message
         namespace = "{}".format(module.search_one('namespace').arg)
         children = _collect_children(module)
         if children:
@@ -71,7 +75,9 @@ def emit_yaml(ctx, modules, fd):
             prefix = "{}".format(module.i_prefix)
             xmlns[prefix] = namespace
     if not main_module:
-        return fd.write("Can't find main module")
+        message = "Can't find main module."
+        fd.write(message)
+        return False, message
     output['node_types'][main_module] = {'properties':
                                          {'edit-config':
                                           {'type': 'edit-config',
@@ -90,6 +96,7 @@ def emit_yaml(ctx, modules, fd):
     dump = yaml.dump(output, width=100, allow_unicode=True,
                      default_flow_style=False)
     fd.write(dump + treeout)
+    return True, 'Converted'
 
 
 def _handle_edit_config(module, output):
