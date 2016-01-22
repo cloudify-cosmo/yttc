@@ -78,18 +78,14 @@ def emit_yaml(ctx, modules, fd):
         message = "Can't find main module."
         fd.write(message)
         return False, message
-    output['node_types'][main_module] = {'properties':
-                                         {'edit-config':
-                                          {'type': 'edit-config',
-                                           'required': False},
-                                          'metadata':
+    output['node_types'][main_module] = {'derived_from':
+                                         'cloudify.netconf.nodes.xml_rpc',
+                                         'properties':
+                                         {'metadata':
                                           {'default':
                                            {'xmlns': xmlns}}}}
-    output['data_types']['edit-config'] = {'properties':
-                                           {'target': {'default': 'running'},
-                                            'config': {'type': 'config'}}}
     for module in modules:
-            _handle_edit_config(module, output)
+            _handle_edit_config(module, main_module, output)
             _handle_custom_rpc(module, main_module, output)
 
     treeout = _get_tree_representation(ctx, modules)
@@ -99,12 +95,13 @@ def emit_yaml(ctx, modules, fd):
     return True, 'Converted'
 
 
-def _handle_edit_config(module, output):
+def _handle_edit_config(module, main_module, output):
     children = _collect_children(module)
     if children:
-        module_types = {}
-        _handle_children(children, module, module_types, output)
-        output['data_types']['config'] = {'properties': module_types}
+        node_info = output['node_types'][main_module]['properties']
+        type_info = {}
+        _handle_children(children, module, type_info, output)
+        node_info.update(type_info)
 
 
 def _handle_custom_rpc(module, main_module, output):
