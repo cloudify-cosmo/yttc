@@ -3,22 +3,14 @@
 Idea copied from tree.
 """
 
-import optparse
-import sys
-import yaml
-import pyang.plugins.tree
-import StringIO
 from pyang import plugin
 from pyang import statements
-
-
-DEFAULT_INTERFACE = {"cloudify.interfaces.lifecycle":
-                     {"create":
-                      {"implementation": "vcloud.cloudify_yang_plugin.create",
-                       "inputs": {}},
-                      "delete":
-                      {"implementation": "vcloud.cloudify_yang_plugin.delete",
-                       "inputs": {}}}}
+import StringIO
+import optparse
+import pyang.plugins.tree
+import pyang.translators.dsdl
+import sys
+import yaml
 
 
 def pyang_plugin_init():
@@ -61,6 +53,7 @@ def emit_yaml(ctx, modules, fd):
     output = {'data_types': {}, 'node_types': {}}
     xmlns = {}
     main_module = None
+    uses_modules = {}
     for module in modules:
         if module.keyword == 'submodule':
             message = "Can't work with submodule."
@@ -74,6 +67,12 @@ def emit_yaml(ctx, modules, fd):
         else:
             prefix = "{}".format(module.i_prefix)
             xmlns[prefix] = namespace
+        rev = module.search_one('revision')
+        if rev:
+            revision = "{}".format(rev.arg)
+        else:
+            revision = 'unknown'
+        uses_modules.update({"{}".format(module.arg): revision})
     if not main_module:
         message = "Can't find main module."
         fd.write(message)
@@ -81,12 +80,20 @@ def emit_yaml(ctx, modules, fd):
     output['node_types'][main_module] = {'derived_from':
                                          'cloudify.netconf.nodes.xml_rpc',
                                          'properties':
-                                         {'metadata':
+                                         {'config':
+                                          {'required': False,
+                                           'type': 'config'},
+                                          'metadata':
                                           {'default':
-                                           {'xmlns': xmlns}}}}
+                                           {'xmlns': xmlns,
+                                            'modules': uses_modules}}}}
+    output['data_types']['config'] = {'properties': {}}
     for module in modules:
-            _handle_edit_config(module, main_module, output)
-            _handle_custom_rpc(module, main_module, output)
+        _handle_edit_config(module, main_module, output)
+        _handle_custom_rpc(module, main_module, output)
+
+    dsdl = _get_dsdl_representation(ctx, modules)
+    output['node_types'][main_module]['properties']['metadata']['default']['dsdl'] = dsdl
 
     treeout = _get_tree_representation(ctx, modules)
     dump = yaml.dump(output, width=100, allow_unicode=True,
@@ -98,26 +105,29 @@ def emit_yaml(ctx, modules, fd):
 def _handle_edit_config(module, main_module, output):
     children = _collect_children(module)
     if children:
-        node_info = output['node_types'][main_module]['properties']
         type_info = {}
         _handle_children(children, module, type_info, output)
-        node_info.update(type_info)
+        output['data_types']['config']['properties'].update(type_info)
 
 
 def _handle_custom_rpc(module, main_module, output):
     rpcs = [ch for ch in module.i_children
             if ch.keyword == 'rpc']
+    if rpcs:
+        output['node_types'][main_module]['properties'].update({'rpc': {'required': False,
+                                                                        'type': 'rpc'}})
+        output['data_types']['rpc'] = {'properties': {}}
     for rpc in rpcs:
         rpc_name = "{}".format(rpc.arg)
         input_stmt = rpc.search_one('input')
-        node_info = output['node_types'][main_module]['properties']
+        node_info = output['data_types']['rpc']['properties']
         if input_stmt:
-            node_info.update({rpc_name: {'type': rpc_name,
+            node_info.update({rpc_name: {'type': rpc_name + '_type',
                                          'required': False}})
             type_info = {}
             children = _collect_children(input_stmt)
             _handle_children(children, module, type_info, output)
-            output['data_types'][rpc_name] = {'properties': type_info}
+            output['data_types'][rpc_name + '_type'] = {'properties': type_info}
         else:
             node_info.update({rpc_name: {'default': {},
                                          'required': False}})
@@ -140,16 +150,18 @@ def _handle_children(children, module, type_info, output):
         type_info[child_name] = {}
         _update_required(c, type_info[child_name])
         _set_default(c, type_info[child_name])
-        _set_type(c, type_info[child_name])
         if c.keyword == 'leaf-list':
+            datatype = c.search_one('type')
             _update_decription(type_info[child_name],
-                               child_name)
+                               datatype.arg)
+        else:
+            _set_type(c, type_info[child_name])
         if hasattr(c, 'i_children') and c.i_children:
             if c.keyword == 'list':
                 _update_decription(type_info[child_name],
                                    child_name)
             else:
-                type_info[child_name]['type'] = child_name
+                type_info[child_name]['type'] = child_name + '_type'
             _add_new_data_type(c, module, output)
 
 
@@ -158,7 +170,7 @@ def _add_new_data_type(statement, module, output):
     if not children:
         return
     type_info = output['data_types']
-    type_name = _get_child_name(module, statement)
+    type_name = _get_child_name(module, statement) + '_type'
     type_info[type_name] = {}
     type_info[type_name]['properties'] = {}
     _handle_children(children, module,
@@ -187,8 +199,8 @@ def _update_required(statement, place):
 def _update_decription(place, text):
     if 'description' not in place:
         place['description'] = ''
-    place['description'] = "[List_of: {}] {}".format(text,
-                                                     place['description'])
+    place['description'] = "[List_of: {}]{}".format(text + '_type',
+                                                    place['description'])
 
 
 def _set_default(statement, place):
@@ -221,3 +233,9 @@ def _get_tree_representation(ctx, modules):
     tree = StringIO.StringIO()
     pyang.plugins.tree.emit_tree(ctx, modules, tree, None, None)
     return '\n#' + tree.getvalue().replace('\n', '\n#')
+
+
+def _get_dsdl_representation(ctx, modules):
+    dsdl = StringIO.StringIO()
+    pyang.translators.dsdl.emit_dsdl(ctx, modules, dsdl)
+    return "{}".format(dsdl.getvalue())

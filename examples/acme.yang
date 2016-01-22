@@ -2,6 +2,10 @@ module acme {
   namespace "http://acme.example.com/acme";
   prefix acme;
 
+  revision 2015-08-06 {
+        description "Test revision";
+  }
+
   typedef cell-index {
     type int64;
     description
