@@ -24,5 +24,5 @@ def convert(filenames, out_fd):
             return False, "Can't load module: {}".format(filename)
         else:
             modules.append(module)
-    emit_yaml(ctx, modules, out_fd)
-    return True, 'Converted'
+    result, message = emit_yaml(ctx, modules, out_fd)
+    return result, message
