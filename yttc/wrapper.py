@@ -3,6 +3,7 @@ import subprocess
 import sys
 import yttc
 
+
 def cli():
     plugin_path = os.path.join(os.path.dirname(yttc.__file__), 'plugin')
     command = "--plugindir {} -f tosca ".format(plugin_path)

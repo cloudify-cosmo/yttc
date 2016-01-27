@@ -94,7 +94,6 @@ def emit_yaml(ctx, modules, fd):
 
     dsdl = _get_dsdl_representation(ctx, modules)
     output['node_types'][main_module]['properties']['metadata']['default']['dsdl'] = dsdl
-
     treeout = _get_tree_representation(ctx, modules)
     dump = yaml.dump(output, width=100, allow_unicode=True,
                      default_flow_style=False)
@@ -149,13 +148,13 @@ def _handle_children(children, module, type_info, output):
             continue
         type_info[child_name] = {}
         _update_required(c, type_info[child_name])
-        _set_default(c, type_info[child_name])
         if c.keyword == 'leaf-list':
             datatype = c.search_one('type')
             _update_decription(type_info[child_name],
                                datatype.arg)
         else:
-            _set_type(c, type_info[child_name])
+            new_type = _set_type(c, type_info[child_name])
+            _set_default(c, type_info[child_name], new_type)
         if hasattr(c, 'i_children') and c.i_children:
             if c.keyword == 'list':
                 _update_decription(type_info[child_name],
@@ -203,10 +202,19 @@ def _update_decription(place, text):
                                                     place['description'])
 
 
-def _set_default(statement, place):
+def _set_default(statement, place, new_type):
     default = statement.search_one('default')
     if default:
-        place.update({'default': "{}".format(default.arg)})
+        default = default.arg
+        if new_type == 'float':
+            default = float(default)
+        elif new_type == 'boolean':
+            default = bool(default)
+        elif new_type == 'integer':
+            default = int(default)
+        elif new_type == 'string':
+            default = str(default)
+        place.update({'default': default})
 
 
 def _set_type(statement, place):
@@ -227,6 +235,7 @@ def _set_type(statement, place):
         arg = datatype.arg
         if arg in convertor:
             place.update({'type': convertor[arg]})
+            return convertor[arg]
 
 
 def _get_tree_representation(ctx, modules):
