@@ -50,7 +50,6 @@ def print_help():
 
 
 def emit_yaml(ctx, modules, fd):
-    output = {'data_types': {}, 'node_types': {}}
     xmlns = {}
     main_module = None
     uses_modules = {}
@@ -77,25 +76,36 @@ def emit_yaml(ctx, modules, fd):
         message = "Can't find main module."
         fd.write(message)
         return False, message
-    output['node_types'][main_module] = {'derived_from':
-                                         'cloudify.netconf.nodes.xml_rpc',
-                                         'properties':
-                                         {'config':
-                                          {'required': False,
-                                           'type': 'config'},
-                                          'metadata':
-                                          {'default':
-                                           {'xmlns': xmlns,
-                                            'modules': uses_modules}}}}
-    output['data_types']['config'] = {'properties': {}}
+    dsdl = _get_dsdl_representation(ctx, modules)
+    output = {
+        'data_types': {
+            'config': {
+                'properties': {
+                }},
+            'rpc': {
+                'properties': {
+                }}},
+        'node_types': {
+            main_module: {
+                'derived_from': 'cloudify.netconf.nodes.xml_rpc',
+                'properties': {
+                    'config': {
+                        'required': False,
+                        'type': 'config'},
+                    'rpc': {
+                        'required': False,
+                        'type': 'rpc'},
+                    'metadata': {
+                        'default': {
+                            'dsdl': dsdl,
+                            'xmlns': xmlns,
+                            'modules': uses_modules}}}}}}
     for module in modules:
         _handle_edit_config(module, main_module, output)
         _handle_custom_rpc(module, main_module, output)
 
-    dsdl = _get_dsdl_representation(ctx, modules)
-    output['node_types'][main_module]['properties']['metadata']['default']['dsdl'] = dsdl
     treeout = _get_tree_representation(ctx, modules)
-    dump = yaml.dump(output, width=100, allow_unicode=True,
+    dump = yaml.dump(output, allow_unicode=True,
                      default_flow_style=False)
     fd.write(dump + treeout)
     return True, 'Converted'
@@ -112,21 +122,23 @@ def _handle_edit_config(module, main_module, output):
 def _handle_custom_rpc(module, main_module, output):
     rpcs = [ch for ch in module.i_children
             if ch.keyword == 'rpc']
-    if rpcs:
-        output['node_types'][main_module]['properties'].update({'rpc': {'required': False,
-                                                                        'type': 'rpc'}})
-        output['data_types']['rpc'] = {'properties': {}}
+    if not rpcs:
+        if 'rpc' in output['data_types']:
+            del(output['data_types']['rpc'])
+            del(output['node_types'][main_module]['properties']['rpc'])
+        return
     for rpc in rpcs:
         rpc_name = "{}".format(rpc.arg)
         input_stmt = rpc.search_one('input')
         node_info = output['data_types']['rpc']['properties']
         if input_stmt:
-            node_info.update({rpc_name: {'type': rpc_name + '_type',
+            node_info.update({rpc_name: {'type': _type(rpc_name),
                                          'required': False}})
             type_info = {}
             children = _collect_children(input_stmt)
             _handle_children(children, module, type_info, output)
-            output['data_types'][rpc_name + '_type'] = {'properties': type_info}
+            output['data_types'][_type(rpc_name)] = {'properties':
+                                                     type_info}
         else:
             node_info.update({rpc_name: {'default': {},
                                          'required': False}})
@@ -160,7 +172,7 @@ def _handle_children(children, module, type_info, output):
                 _update_decription(type_info[child_name],
                                    child_name)
             else:
-                type_info[child_name]['type'] = child_name + '_type'
+                type_info[child_name]['type'] = _type(child_name)
             _add_new_data_type(c, module, output)
 
 
@@ -169,7 +181,7 @@ def _add_new_data_type(statement, module, output):
     if not children:
         return
     type_info = output['data_types']
-    type_name = _get_child_name(module, statement) + '_type'
+    type_name = _type(_get_child_name(module, statement))
     type_info[type_name] = {}
     type_info[type_name]['properties'] = {}
     _handle_children(children, module,
@@ -198,7 +210,7 @@ def _update_required(statement, place):
 def _update_decription(place, text):
     if 'description' not in place:
         place['description'] = ''
-    place['description'] = "[List_of: {}]{}".format(text + '_type',
+    place['description'] = "[List_of: {}]{}".format(_type(text),
                                                     place['description'])
 
 
@@ -248,3 +260,7 @@ def _get_dsdl_representation(ctx, modules):
     dsdl = StringIO.StringIO()
     pyang.translators.dsdl.emit_dsdl(ctx, modules, dsdl)
     return "{}".format(dsdl.getvalue())
+
+
+def _type(name):
+    return name + '_type'
