@@ -11,6 +11,10 @@ import pyang.plugins.tree
 import pyang.translators.dsdl
 import sys
 import yaml
+from collections import OrderedDict
+
+
+DERIVED_FROM = 'cloudify.netconf.nodes.xml_rpc'
 
 
 def pyang_plugin_init():
@@ -79,22 +83,22 @@ def emit_yaml(ctx, modules, fd):
     dsdl = _get_dsdl_representation(ctx, modules)
     output = {
         'data_types': {
-            'config': {
+            '_config': {
                 'properties': {
                 }},
-            'rpc': {
+            '_rpc': {
                 'properties': {
                 }}},
         'node_types': {
             main_module: {
-                'derived_from': 'cloudify.netconf.nodes.xml_rpc',
+                'derived_from': DERIVED_FROM,
                 'properties': {
                     'config': {
                         'required': False,
-                        'type': 'config'},
+                        'type': '_config'},
                     'rpc': {
                         'required': False,
-                        'type': 'rpc'},
+                        'type': '_rpc'},
                     'metadata': {
                         'default': {
                             'dsdl': dsdl,
@@ -103,10 +107,9 @@ def emit_yaml(ctx, modules, fd):
     for module in modules:
         _handle_edit_config(module, main_module, output)
         _handle_custom_rpc(module, main_module, output)
-
-    treeout = _get_tree_representation(ctx, modules)
     dump = yaml.dump(output, allow_unicode=True,
                      default_flow_style=False)
+    treeout = _get_tree_representation(ctx, modules)
     fd.write(dump + treeout)
     return True, 'Converted'
 
@@ -116,21 +119,16 @@ def _handle_edit_config(module, main_module, output):
     if children:
         type_info = {}
         _handle_children(children, module, type_info, output)
-        output['data_types']['config']['properties'].update(type_info)
+        output['data_types']['_config']['properties'].update(type_info)
 
 
 def _handle_custom_rpc(module, main_module, output):
     rpcs = [ch for ch in module.i_children
             if ch.keyword == 'rpc']
-    if not rpcs:
-        if 'rpc' in output['data_types']:
-            del(output['data_types']['rpc'])
-            del(output['node_types'][main_module]['properties']['rpc'])
-        return
     for rpc in rpcs:
         rpc_name = "{}".format(rpc.arg)
         input_stmt = rpc.search_one('input')
-        node_info = output['data_types']['rpc']['properties']
+        node_info = output['data_types']['_rpc']['properties']
         if input_stmt:
             node_info.update({rpc_name: {'type': _type(rpc_name),
                                          'required': False}})

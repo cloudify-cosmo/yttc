@@ -77,6 +77,9 @@ module acme {
           description
             "Coordinate (index) of the tape cell.";
         }
+        leaf-list address {
+               type string;
+        }
         leaf data {
           type int8;
           default 42;
