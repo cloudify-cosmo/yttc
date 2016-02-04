@@ -2,6 +2,10 @@ module acme {
   namespace "http://acme.example.com/acme";
   prefix acme;
 
+  revision 2015-08-06 {
+        description "Test revision";
+  }
+
   typedef cell-index {
     type int64;
     description
@@ -73,8 +77,12 @@ module acme {
           description
             "Coordinate (index) of the tape cell.";
         }
+        leaf-list address {
+               type string;
+        }
         leaf data {
-          type string;
+          type int8;
+          default 42;
           description
             "Coordinate (index) of the tape cell.";
         }
