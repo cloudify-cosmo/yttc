@@ -36,7 +36,7 @@ def dump_tree(data_node):
     return output
 
 
-def save_config(host, chan):
+def save_config(host, chan, parsed_yaml):
     response = send_xml(chan, """
      <rpc message-id="1"
           xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
@@ -48,14 +48,23 @@ def save_config(host, chan):
      </rpc>
 """)
     data_node = ET.fromstring(response).getchildren()[0]
+
     output = dump_tree(data_node)
+    module_name = parsed_yaml['node_types'].keys()[0]
+    parsed_yaml['node_types'][module_name]['properties']['default'] = output
     with open(host + '.yaml', 'w') as config:
-        dump = yaml.dump(output, width=100, allow_unicode=True,
+        dump = yaml.dump(parsed_yaml, width=100, allow_unicode=True,
                          default_flow_style=False)
         config.write(dump)
 
 
-def main(host, user, password, port):
+def main(yaml_file, host, user, password, port):
+    try:
+        with open(yaml_file, 'r') as stream:
+            parsed_yaml = yaml.load(stream)
+    except (IOError, yaml.scanner.ScannerError):
+        print "Can't parse input file: '{}'".format(yaml_file)
+        sys.exit(-2)
     with paramiko.SSHClient() as ssh:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host, username=user, password=password,
@@ -68,13 +77,13 @@ def main(host, user, password, port):
             <capability>urn:ietf:params:netconf:base:1.0</capability>
             </capabilities>
             </hello>""")
-            save_config(host, chan)
+            save_config(host, chan, parsed_yaml)
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if len(args) < 3:
-        print "Usage: python get_yang.py host user password"
+    if len(args) < 4:
+        print "Usage: python get_yang.py yaml_file host user password"
         sys.exit(-1)
-    port = 830 if len(args) == 3 else int(args[3])
-    main(args[0], args[1], args[2], port)
+    port = 830 if len(args) == 4 else int(args[4])
+    main(args[0], args[1], args[2], args[3], port)
