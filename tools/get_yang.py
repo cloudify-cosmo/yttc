@@ -37,10 +37,12 @@ def save_schema(chan, text):
 
 
 def main(host, user, password, port):
-    with paramiko.SSHClient() as ssh:
+    ssh = paramiko.SSHClient()
+    try:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host, username=user, password=password, port=port, look_for_keys=False)
-        with ssh.get_transport().open_session() as chan:
+        try:
+            chan = ssh.get_transport().open_session()
             chan.invoke_subsystem('netconf')
             response = send_xml(chan, """
             <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
@@ -50,6 +52,10 @@ def main(host, user, password, port):
             </hello>""")
             for c in ET.fromstring(response).getchildren()[0].getchildren():
                 save_schema(chan, c.text)
+        finally:
+            chan.close()
+    finally:
+        ssh.close()
 
 
 if __name__ == '__main__':
