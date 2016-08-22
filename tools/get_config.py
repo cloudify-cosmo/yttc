@@ -65,11 +65,13 @@ def main(yaml_file, host, user, password, port):
     except (IOError, yaml.scanner.ScannerError):
         print "Can't parse input file: '{}'".format(yaml_file)
         sys.exit(-2)
-    with paramiko.SSHClient() as ssh:
+    ssh = paramiko.SSHClient()
+    try:
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host, username=user, password=password,
                     port=port, look_for_keys=False)
-        with ssh.get_transport().open_session() as chan:
+        chan = ssh.get_transport().open_session()
+        try:
             chan.invoke_subsystem('netconf')
             send_xml(chan, """
             <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
@@ -78,6 +80,10 @@ def main(yaml_file, host, user, password, port):
             </capabilities>
             </hello>""")
             save_config(host, chan, parsed_yaml)
+        finally:
+            chan.close()
+    finally:
+        ssh.close()
 
 
 if __name__ == '__main__':
